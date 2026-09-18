@@ -82,7 +82,6 @@ final class SessionManager: ObservableObject {
         session.deadline = nil
         self.session = session
         stopTimer()
-        SoundPlayer.playCompletionIfPresent()
     }
 
     func finishCompletion() {

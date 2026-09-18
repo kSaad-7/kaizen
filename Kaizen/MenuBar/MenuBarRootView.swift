@@ -124,6 +124,8 @@ struct MenuBarRootView: View {
                 .font(Theme.Typeface.timer())
                 .monospacedDigit()
                 .foregroundStyle(session.isPaused ? Theme.muted : Theme.text)
+                .contentTransition(.identity)
+                .transaction { $0.animation = nil }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -147,7 +149,7 @@ struct MenuBarRootView: View {
                 systemName: "stop.fill",
                 help: "Stop"
             ) {
-                sessionManager.stop()
+                    sessionManager.beginCompletion()
             }
         }
         .padding(4)

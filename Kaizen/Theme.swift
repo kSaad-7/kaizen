@@ -22,7 +22,8 @@ enum Theme {
     static let startSessionListHeight: CGFloat = 108
     static let checklistMenuWidth: CGFloat = 380
     static let checklistMenuMinHeight: CGFloat = 620
-    static let expandedTimerSize = CGSize(width: 268, height: 248)
+    static let expandedTimerSize = CGSize(width: 268, height: 296)
+    static let widgetGap: CGFloat = 6
     static let hoverChecklistListHeight: CGFloat = 140
     static let persistentListHeight: CGFloat = 480
 
@@ -51,20 +52,23 @@ enum Theme {
 
     enum Motion {
         static let duration: TimeInterval = 0.3
+        static let widgetFade: TimeInterval = 0.12
+        static let widgetShrinkDelay: Duration = .milliseconds(140)
         static let hoverDelay: Duration = .milliseconds(90)
         static let hoverEnter: Duration = .milliseconds(300)
         static let hoverExit: Duration = .milliseconds(300)
         static let press: TimeInterval = duration
         static let fade: TimeInterval = duration
         static let vignette: TimeInterval = duration
-        static let completionBurst: TimeInterval = 1.15
-        static let completionFade: TimeInterval = duration
+        static let completionBurst: TimeInterval = 0.32
+        static let completionFade: TimeInterval = 0.2
         static let closeArmTimeout: TimeInterval = 3
 
         static func easeOut(_ duration: TimeInterval = duration) -> Animation {
             .timingCurve(0.23, 1, 0.32, 1, duration: duration)
         }
 
+        static var widgetFadeAnimation: Animation { .easeOut(duration: widgetFade) }
         static var hoverEnterAnimation: Animation { easeOut() }
         static var hoverExitAnimation: Animation { easeOut() }
         static var pressAnimation: Animation { easeOut() }
@@ -84,8 +88,8 @@ struct KaizenSurface: View {
                     .fill(
                         LinearGradient(
                             stops: [
-                                .init(color: Theme.pink.opacity(0.14), location: 0),
-                                .init(color: Theme.pink.opacity(0.05), location: 0.42),
+                                .init(color: Theme.pink.opacity(0.22), location: 0),
+                                .init(color: Theme.pink.opacity(0.09), location: 0.42),
                                 .init(color: .clear, location: 0.82)
                             ],
                             startPoint: .topLeading,
@@ -104,6 +108,7 @@ struct KaizenTextField: View {
     var width: CGFloat? = nil
     var onSubmit: (() -> Void)? = nil
     var onChange: ((String) -> Void)? = nil
+    var autoFocus: Bool = false
 
     @FocusState private var focused: Bool
 
@@ -128,6 +133,12 @@ struct KaizenTextField: View {
             .onSubmit { onSubmit?() }
             .onChange(of: text) { _, newValue in
                 onChange?(newValue)
+            }
+            .onAppear {
+                guard autoFocus else { return }
+                DispatchQueue.main.async {
+                    focused = true
+                }
             }
     }
 }

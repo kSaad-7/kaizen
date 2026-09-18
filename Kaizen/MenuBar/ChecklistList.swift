@@ -8,6 +8,7 @@ struct ChecklistList: View {
     var onAdd: (String) -> Void
     var onToggle: (UUID) -> Void
     var onDelete: (UUID) -> Void
+    var onFocusChange: ((Bool) -> Void)? = nil
 
     @State private var draft = ""
     @State private var hoveredID: UUID?
@@ -91,6 +92,9 @@ struct ChecklistList: View {
                 .strokeBorder(addFocused ? Theme.pink : Color.clear, lineWidth: 1)
         }
         .animation(Theme.Motion.colorAnimation, value: addFocused)
+        .onChange(of: addFocused) { _, focused in
+            onFocusChange?(focused)
+        }
     }
 
     private func row(_ item: ChecklistItem) -> some View {

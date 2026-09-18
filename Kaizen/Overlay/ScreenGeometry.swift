@@ -11,29 +11,50 @@ enum ScreenGeometry {
         on screen: NSScreen,
         margin: CGFloat = 16
     ) -> NSRect {
+        widgetFrame(
+            position: position,
+            compact: size,
+            expanded: size,
+            isExpanded: false,
+            on: screen,
+            margin: margin
+        )
+    }
+
+    /// Bottom of the panel stays put when expanding. Extra height grows upward.
+    /// `compact` is used to pick the preferred bottom, then the bottom is clamped
+    /// so `expanded` still fits in the visible frame.
+    static func widgetFrame(
+        position: TimerPosition,
+        compact: CGSize,
+        expanded: CGSize,
+        isExpanded: Bool,
+        on screen: NSScreen,
+        margin: CGFloat = 16
+    ) -> NSRect {
         let visible = screen.visibleFrame
-        let x: CGFloat
-        let y: CGFloat
-        switch position {
-        case .topLeft:
-            x = visible.minX + margin
-            y = visible.maxY - size.height - margin
-        case .topCenter:
-            x = visible.midX - size.width / 2
-            y = visible.maxY - size.height - margin
-        case .topRight:
-            x = visible.maxX - size.width - margin
-            y = visible.maxY - size.height - margin
-        case .bottomLeft:
-            x = visible.minX + margin
-            y = visible.minY + margin
-        case .bottomCenter:
-            x = visible.midX - size.width / 2
-            y = visible.minY + margin
-        case .bottomRight:
-            x = visible.maxX - size.width - margin
-            y = visible.minY + margin
+        let size = isExpanded ? expanded : compact
+
+        let preferredBottom: CGFloat
+        if position.isTop {
+            preferredBottom = visible.maxY - compact.height - margin
+        } else {
+            preferredBottom = visible.minY + margin
         }
-        return NSRect(x: x, y: y, width: size.width, height: size.height)
+        let maxBottom = visible.maxY - margin - expanded.height
+        let minBottom = visible.minY + margin
+        let bottom = min(max(preferredBottom, minBottom), maxBottom)
+
+        let x: CGFloat
+        switch position {
+        case .topLeft, .bottomLeft:
+            x = visible.minX + margin
+        case .topCenter, .bottomCenter:
+            x = visible.midX - size.width / 2
+        case .topRight, .bottomRight:
+            x = visible.maxX - size.width - margin
+        }
+
+        return NSRect(x: x, y: bottom, width: size.width, height: size.height)
     }
 }

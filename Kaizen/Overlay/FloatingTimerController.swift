@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class TimerChrome: ObservableObject {
     @Published var isExpanded = false
+    @Published var isFlashing = false
 }
 
 @MainActor
@@ -14,14 +15,17 @@ final class FloatingTimerController {
     private var panel: NSPanel?
     private var hosting: NSHostingView<FloatingTimerRoot>?
     private var completionTask: Task<Void, Never>?
-    private var collapseTask: Task<Void, Never>?
+    private var shrinkTask: Task<Void, Never>?
     private var windowExpanded = false
+    private var isHovering = false
+    private var isMenuHeld = false
 
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
     }
 
     func ensureVisible(preferences: Preferences) {
+        if chrome.isFlashing { return }
         let created = panel == nil
         if created {
             createPanel()
@@ -31,10 +35,15 @@ final class FloatingTimerController {
         if created || panel.alphaValue < 0.99 {
             panel.alphaValue = 0
             panel.orderFrontRegardless()
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Theme.Motion.fade
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
-                panel.animator().alphaValue = 1
+            panel.displayIfNeeded()
+            DispatchQueue.main.async { [weak panel] in
+                guard let panel else { return }
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = Theme.Motion.widgetFade
+                    context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    context.allowsImplicitAnimation = false
+                    panel.animator().alphaValue = 1
+                }
             }
         } else {
             panel.alphaValue = 1
@@ -43,10 +52,14 @@ final class FloatingTimerController {
     }
 
     func hide(animated: Bool) {
+        if completionTask != nil { return }
         completionTask?.cancel()
         completionTask = nil
-        collapseTask?.cancel()
+        shrinkTask?.cancel()
+        isHovering = false
+        isMenuHeld = false
         chrome.isExpanded = false
+        chrome.isFlashing = false
         windowExpanded = false
         guard let panel, panel.isVisible || animated else {
             tearDown()
@@ -55,7 +68,7 @@ final class FloatingTimerController {
         if animated {
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = Theme.Motion.fade
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().alphaValue = 0
             }, completionHandler: { [weak self] in
                 Task { @MainActor in
@@ -68,7 +81,15 @@ final class FloatingTimerController {
     }
 
     func playCompletionThenDismiss(completion: @escaping () -> Void) {
-        chrome.isExpanded = false
+        shrinkTask?.cancel()
+        isHovering = false
+        isMenuHeld = false
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            chrome.isFlashing = true
+            chrome.isExpanded = false
+        }
         windowExpanded = false
         applyFrame(preferences: sessionManager.preferences)
         completionTask?.cancel()
@@ -79,7 +100,7 @@ final class FloatingTimerController {
                 await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
                     NSAnimationContext.runAnimationGroup({ context in
                         context.duration = Theme.Motion.completionFade
-                        context.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+                        context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                         panel.animator().alphaValue = 0
                     }, completionHandler: {
                         cont.resume()
@@ -97,7 +118,11 @@ final class FloatingTimerController {
         panel = nil
         hosting = nil
         chrome.isExpanded = false
+        chrome.isFlashing = false
         windowExpanded = false
+        isHovering = false
+        isMenuHeld = false
+        completionTask = nil
     }
 
     private func createPanel() {
@@ -106,17 +131,20 @@ final class FloatingTimerController {
             chrome: chrome,
             onHoverChange: { [weak self] hovering in
                 self?.handleHoverIntent(hovering)
+            },
+            onHoldChange: { [weak self] held in
+                self?.setMenuHeld(held)
             }
         )
-        let seed = Theme.compactTimerSize(clock: "00:00", paused: false)
-        let container = NSView(frame: NSRect(origin: .zero, size: seed))
+        let seed = expandedSize()
+        let container = NSView(frame: NSRect(origin: .zero, size: compactSize()))
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.clear.cgColor
+        container.layer?.masksToBounds = true
 
         let hostingView = NSHostingView(rootView: root)
         hostingView.sizingOptions = []
-        hostingView.frame = container.bounds
-        hostingView.autoresizingMask = [.width, .height]
+        hostingView.frame = NSRect(origin: .zero, size: seed)
         container.addSubview(hostingView)
 
         let panel = TimerPanel(
@@ -145,47 +173,78 @@ final class FloatingTimerController {
 
     private func handleHoverIntent(_ hovering: Bool) {
         DispatchQueue.main.async { [weak self] in
-            self?.applyHover(hovering)
+            self?.setHovering(hovering)
         }
     }
 
-    private func applyHover(_ hovering: Bool) {
+    private func setHovering(_ hovering: Bool) {
+        isHovering = hovering
+        syncExpanded()
+    }
+
+    private func setMenuHeld(_ held: Bool) {
+        isMenuHeld = held
+        syncExpanded()
+    }
+
+    private func syncExpanded() {
         guard sessionManager.session?.isCompleting != true else { return }
-        collapseTask?.cancel()
-        if hovering {
-            windowExpanded = true
-            applyFrame(preferences: sessionManager.preferences)
-            withAnimation(Theme.Motion.hoverEnterAnimation) {
+        let wantExpanded = isHovering || isMenuHeld
+        if wantExpanded {
+            shrinkTask?.cancel()
+            if !windowExpanded {
+                windowExpanded = true
+                applyFrame(preferences: sessionManager.preferences)
+            }
+            if !chrome.isExpanded {
                 chrome.isExpanded = true
             }
             return
         }
-        collapseTask = Task { @MainActor in
-            try? await Task.sleep(for: Theme.Motion.hoverDelay)
+
+        if chrome.isExpanded {
+            chrome.isExpanded = false
+        }
+        shrinkTask?.cancel()
+        shrinkTask = Task { @MainActor in
+            try? await Task.sleep(for: Theme.Motion.widgetShrinkDelay)
             guard !Task.isCancelled else { return }
-            withAnimation(Theme.Motion.hoverExitAnimation) {
-                chrome.isExpanded = false
-            }
-            try? await Task.sleep(for: Theme.Motion.hoverExit)
-            guard !Task.isCancelled else { return }
-            windowExpanded = false
-            applyFrame(preferences: sessionManager.preferences)
+            guard !self.isHovering, !self.isMenuHeld else { return }
+            self.windowExpanded = false
+            self.applyFrame(preferences: self.sessionManager.preferences)
         }
     }
 
     private func applyFrame(preferences: Preferences) {
-        guard let panel, let screen = ScreenGeometry.menuBarScreen else { return }
-        let size = windowExpanded ? expandedSize() : compactSize()
-        let frame = ScreenGeometry.frame(for: preferences.timerPosition, size: size, on: screen)
-        if panel.frame != frame {
-            panel.setFrame(frame, display: true)
+        guard let panel, let hosting, let screen = ScreenGeometry.menuBarScreen else { return }
+        let compact = compactSize()
+        let expanded = expandedSize()
+        let frame = ScreenGeometry.widgetFrame(
+            position: preferences.timerPosition,
+            compact: compact,
+            expanded: expanded,
+            isExpanded: windowExpanded,
+            on: screen
+        )
+        panel.setFrame(frame, display: true)
+
+        let clip = frame.size
+        let x: CGFloat
+        switch preferences.timerPosition {
+        case .topLeft, .bottomLeft:
+            x = 0
+        case .topRight, .bottomRight:
+            x = clip.width - expanded.width
+        case .topCenter, .bottomCenter:
+            x = (clip.width - expanded.width) / 2
         }
-        hosting?.frame = NSRect(origin: .zero, size: size)
+        hosting.frame = NSRect(x: x, y: 0, width: expanded.width, height: expanded.height)
     }
 
     private func compactSize() -> CGSize {
         Theme.compactTimerSize(
-            clock: sessionManager.session?.remaining.kaizenClock ?? "00:00",
+            clock: sessionManager.session?.remaining.kaizenClock
+                ?? sessionManager.preferences.lastDuration.kaizenClock,
             paused: sessionManager.session?.isPaused == true
         )
     }
@@ -199,9 +258,10 @@ struct FloatingTimerRoot: View {
     @ObservedObject var sessionManager: SessionManager
     @ObservedObject var chrome: TimerChrome
     var onHoverChange: (Bool) -> Void
+    var onHoldChange: (Bool) -> Void
 
     var body: some View {
-        FloatingTimerView(onHoverChange: onHoverChange)
+        FloatingTimerView(onHoverChange: onHoverChange, onHoldChange: onHoldChange)
             .environmentObject(sessionManager)
             .environmentObject(chrome)
     }

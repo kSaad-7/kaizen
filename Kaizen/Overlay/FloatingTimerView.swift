@@ -4,74 +4,86 @@ struct FloatingTimerView: View {
     @EnvironmentObject private var sessionManager: SessionManager
     @EnvironmentObject private var chrome: TimerChrome
     var onHoverChange: (Bool) -> Void
+    var onHoldChange: (Bool) -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var closeArmed = false
-    @State private var armTask: Task<Void, Never>?
-    @State private var flash = false
-
-    private var showChrome: Bool {
+    private var menuVisible: Bool {
         chrome.isExpanded && sessionManager.session?.isCompleting != true
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 6) {
-                timerCard
-                if showChrome {
-                    actionCard
-                        .transition(chromeTransition(anchor: .leading))
-                }
-            }
-            if showChrome, let session = sessionManager.session, !session.isCompleting {
-                checklistCard(session)
-                    .transition(chromeTransition(anchor: .top))
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .preferredColorScheme(.dark)
-        .onHover(perform: onHoverChange)
-        .onChange(of: sessionManager.session?.state) { _, state in
-            if state == .completing {
-                closeArmed = false
-                withAnimation(Theme.Motion.hoverEnterAnimation) { flash = true }
-                withAnimation(Theme.Motion.fadeAnimation.delay(0.4)) { flash = false }
-            } else {
-                flash = false
-            }
-        }
-        .onChange(of: chrome.isExpanded) { _, expanded in
-            if !expanded {
-                closeArmed = false
-            }
-        }
-        .onDisappear {
-            armTask?.cancel()
-        }
+    private var completing: Bool {
+        sessionManager.session?.isCompleting == true
     }
 
-    private func chromeTransition(anchor: UnitPoint) -> AnyTransition {
-        if reduceMotion {
-            return .opacity
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.widgetGap) {
+            menuBlock
+                .opacity(menuVisible ? 1 : 0)
+                .animation(chrome.isFlashing ? nil : Theme.Motion.widgetFadeAnimation, value: menuVisible)
+                .allowsHitTesting(menuVisible)
+
+            timerRow
         }
-        return .asymmetric(
-            insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: anchor)),
-            removal: .opacity
-        )
+        .frame(width: Theme.expandedTimerSize.width, height: Theme.expandedTimerSize.height, alignment: .bottomLeading)
+        .preferredColorScheme(.dark)
+        .onHover(perform: onHoverChange)
+        .onChange(of: completing) { _, nowCompleting in
+            if nowCompleting {
+                onHoldChange(false)
+            }
+        }
     }
 
     private var paused: Bool {
         sessionManager.session?.isPaused == true
     }
 
+    private var clockLabel: String {
+        if let remaining = sessionManager.session?.remaining {
+            return remaining.kaizenClock
+        }
+        return sessionManager.preferences.lastDuration.kaizenClock
+    }
+
+    private var timerRow: some View {
+        HStack(spacing: 0) {
+            if !sessionManager.preferences.timerPosition.isLeading {
+                Spacer(minLength: 0)
+            }
+            timerCard
+            if !sessionManager.preferences.timerPosition.isTrailing {
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var menuBlock: some View {
+        VStack(alignment: .leading, spacing: Theme.widgetGap) {
+            if let session = sessionManager.session {
+                checklistCard(session)
+            }
+            HStack(spacing: 0) {
+                if !sessionManager.preferences.timerPosition.isLeading {
+                    Spacer(minLength: 0)
+                }
+                actionCard
+                if !sessionManager.preferences.timerPosition.isTrailing {
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
     private var timerCard: some View {
         HStack(spacing: 6) {
             TimerGlyph(size: 12)
                 .foregroundStyle(paused ? Theme.muted : Theme.text)
-            Text(sessionManager.session?.remaining.kaizenClock ?? "00:00")
+            Text(clockLabel)
                 .font(Theme.Typeface.timer())
                 .monospacedDigit()
                 .foregroundStyle(paused ? Theme.muted : Theme.text)
+                .contentTransition(.identity)
+                .transaction { $0.animation = nil }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -81,13 +93,11 @@ struct FloatingTimerView: View {
         .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
-                .strokeBorder(flash ? Theme.pink : Theme.stroke, lineWidth: 1)
+                .fill(Theme.pink.opacity(chrome.isFlashing ? 0.55 : 0))
         }
         .overlay {
-            if sessionManager.session?.isCompleting == true {
-                RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
-                    .fill(Theme.pink.opacity(flash ? 0.28 : 0))
-            }
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
+                .strokeBorder(chrome.isFlashing ? Theme.pink : Theme.stroke, lineWidth: 1)
         }
     }
 
@@ -105,21 +115,10 @@ struct FloatingTimerView: View {
             }
 
             SessionIconButton(
-                systemName: closeArmed ? "checkmark" : "stop.fill",
-                help: closeArmed ? "Confirm stop" : "Stop",
-                tint: closeArmed ? Theme.pink : Theme.text
+                systemName: "stop.fill",
+                help: "Stop"
             ) {
-                if closeArmed {
-                    sessionManager.stop()
-                } else {
-                    closeArmed = true
-                    armTask?.cancel()
-                    armTask = Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(Theme.Motion.closeArmTimeout))
-                        guard !Task.isCancelled else { return }
-                        closeArmed = false
-                    }
-                }
+                sessionManager.beginCompletion()
             }
         }
         .padding(4)
@@ -140,10 +139,11 @@ struct FloatingTimerView: View {
             itemListHeight: Theme.hoverChecklistListHeight,
             onAdd: { sessionManager.addSessionItem($0) },
             onToggle: { sessionManager.toggleSessionItem($0) },
-            onDelete: { sessionManager.deleteSessionItem($0) }
+            onDelete: { sessionManager.deleteSessionItem($0) },
+            onFocusChange: onHoldChange
         )
         .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
         .background {
             KaizenSurface(cornerRadius: Theme.radiusS)
         }

@@ -19,7 +19,7 @@ struct StartSessionView: View {
                 .font(Theme.Typeface.title())
                 .foregroundStyle(Theme.text)
 
-            KaizenTextField(text: $name)
+            KaizenTextField(text: $name, autoFocus: true)
 
             Text("Duration")
                 .font(Theme.Typeface.section())

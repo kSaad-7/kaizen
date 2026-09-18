@@ -61,6 +61,20 @@ enum TimerPosition: String, Codable, CaseIterable, Identifiable {
         case .bottomLeft, .bottomCenter, .bottomRight: false
         }
     }
+
+    var isLeading: Bool {
+        switch self {
+        case .topLeft, .bottomLeft: true
+        default: false
+        }
+    }
+
+    var isTrailing: Bool {
+        switch self {
+        case .topRight, .bottomRight: true
+        default: false
+        }
+    }
 }
 
 struct Preferences: Codable, Equatable {
