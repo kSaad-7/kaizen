@@ -19,14 +19,7 @@ struct StartSessionView: View {
                 .font(Theme.Typeface.title())
                 .foregroundStyle(Theme.text)
 
-            TextField("", text: $name)
-                .textFieldStyle(.plain)
-                .font(Theme.Typeface.body())
-                .foregroundStyle(Theme.text)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 7)
-                .background(Theme.fill)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM, style: .continuous))
+            KaizenTextField(text: $name)
 
             Text("Duration")
                 .font(Theme.Typeface.section())
@@ -59,6 +52,7 @@ struct StartSessionView: View {
             ChecklistList(
                 items: sessionTasks,
                 addPrompt: "Add a task for this session",
+                itemListHeight: Theme.startSessionListHeight,
                 onAdd: { text in
                     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else { return }
@@ -100,16 +94,13 @@ struct StartSessionView: View {
             Text(label)
                 .font(Theme.Typeface.label())
                 .foregroundStyle(Theme.muted)
-            TextField("0", text: text)
-                .textFieldStyle(.plain)
-                .font(Theme.Typeface.timer())
-                .monospacedDigit()
-                .multilineTextAlignment(.center)
-                .frame(width: 40)
-                .padding(.vertical, 5)
-                .background(Theme.fill)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
-                .onChange(of: text.wrappedValue) { _, newValue in
+            KaizenTextField(
+                text: text,
+                placeholder: "0",
+                alignment: .center,
+                monospaced: true,
+                width: 56,
+                onChange: { newValue in
                     let digits = String(newValue.filter(\.isNumber).prefix(2))
                     if digits != newValue {
                         text.wrappedValue = digits
@@ -119,6 +110,7 @@ struct StartSessionView: View {
                         text.wrappedValue = String(max)
                     }
                 }
+            )
         }
     }
 
@@ -126,11 +118,15 @@ struct StartSessionView: View {
         Button(action: action) {
             Text(title)
                 .font(Theme.Typeface.micro())
-                .foregroundStyle(selected ? Color.white : Theme.text)
+                .foregroundStyle(Theme.text)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
-                .background(selected ? Theme.pink : Theme.fill)
-                .clipShape(Capsule())
+                .background(Theme.fill)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
+                        .strokeBorder(selected ? Theme.pink : Theme.hairline, lineWidth: 1)
+                }
         }
         .buttonStyle(ScalePressStyle())
         .animation(Theme.Motion.colorAnimation, value: selected)

@@ -26,7 +26,7 @@ final class VignetteController {
             seen.insert(key)
             if let window = windows[key] {
                 window.setFrame(screen.frame, display: true)
-                (window.contentView as? VignetteView)?.layoutCorners()
+                (window.contentView as? VignetteView)?.layoutFrame()
             } else {
                 windows[key] = makeWindow(for: screen)
             }
@@ -88,24 +88,26 @@ final class VignetteController {
 
 @MainActor
 private final class VignetteView: NSView {
-    private let cornerViews: [DitherRenderer.Corner: NSImageView] = {
-        var views: [DitherRenderer.Corner: NSImageView] = [:]
-        for corner in [DitherRenderer.Corner.topLeft, .topRight, .bottomLeft, .bottomRight] {
+    private let pieces: [(DitherRenderer.Piece, NSImageView)] = {
+        let kinds: [DitherRenderer.Piece] = [
+            .edge(.top), .edge(.bottom), .edge(.left), .edge(.right),
+            .corner(.topLeft), .corner(.topRight), .corner(.bottomLeft), .corner(.bottomRight)
+        ]
+        return kinds.map { piece in
             let view = NSImageView()
             view.imageScaling = .scaleAxesIndependently
-            views[corner] = view
+            return (piece, view)
         }
-        return views
     }()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
-        for view in cornerViews.values {
+        for (_, view) in pieces {
             addSubview(view)
         }
-        layoutCorners()
+        layoutFrame()
     }
 
     required init?(coder: NSCoder) {
@@ -114,23 +116,34 @@ private final class VignetteView: NSView {
 
     override func layout() {
         super.layout()
-        layoutCorners()
+        layoutFrame()
     }
 
-    func layoutCorners() {
+    func layoutFrame() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let size = min(bounds.width, bounds.height) * 0.52
-        guard size > 8 else { return }
+        let thickness = min(bounds.width, bounds.height) * 0.28
+        guard thickness > 8, bounds.width > thickness * 2, bounds.height > thickness * 2 else { return }
 
-        func place(_ corner: DitherRenderer.Corner, x: CGFloat, y: CGFloat) {
-            guard let view = cornerViews[corner] else { return }
-            view.image = DitherRenderer.cornerImage(corner: corner, pointSize: size, scale: scale)
-            view.frame = NSRect(x: x, y: y, width: size, height: size)
+        let width = bounds.width
+        let height = bounds.height
+        let innerWidth = width - thickness * 2
+        let innerHeight = height - thickness * 2
+
+        func place(_ piece: DitherRenderer.Piece, frame: NSRect) {
+            guard let view = pieces.first(where: { $0.0 == piece })?.1 else { return }
+            view.image = DitherRenderer.image(piece: piece, pointSize: frame.size, scale: scale)
+            view.frame = frame
         }
 
-        place(.topLeft, x: 0, y: bounds.maxY - size)
-        place(.topRight, x: bounds.maxX - size, y: bounds.maxY - size)
-        place(.bottomLeft, x: 0, y: 0)
-        place(.bottomRight, x: bounds.maxX - size, y: 0)
+        place(.corner(.bottomLeft), frame: NSRect(x: 0, y: 0, width: thickness, height: thickness))
+        place(.edge(.bottom), frame: NSRect(x: thickness, y: 0, width: innerWidth, height: thickness))
+        place(.corner(.bottomRight), frame: NSRect(x: width - thickness, y: 0, width: thickness, height: thickness))
+
+        place(.edge(.left), frame: NSRect(x: 0, y: thickness, width: thickness, height: innerHeight))
+        place(.edge(.right), frame: NSRect(x: width - thickness, y: thickness, width: thickness, height: innerHeight))
+
+        place(.corner(.topLeft), frame: NSRect(x: 0, y: height - thickness, width: thickness, height: thickness))
+        place(.edge(.top), frame: NSRect(x: thickness, y: height - thickness, width: innerWidth, height: thickness))
+        place(.corner(.topRight), frame: NSRect(x: width - thickness, y: height - thickness, width: thickness, height: thickness))
     }
 }

@@ -76,16 +76,16 @@ struct FloatingTimerView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background {
-            KaizenSurface(cornerRadius: Theme.radiusL)
+            KaizenSurface(cornerRadius: Theme.radiusS)
         }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
                 .strokeBorder(flash ? Theme.pink : Theme.stroke, lineWidth: 1)
         }
         .overlay {
             if sessionManager.session?.isCompleting == true {
-                RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
                     .fill(Theme.pink.opacity(flash ? 0.28 : 0))
             }
         }
@@ -124,11 +124,11 @@ struct FloatingTimerView: View {
         }
         .padding(4)
         .background {
-            KaizenSurface(cornerRadius: Theme.radiusL)
+            KaizenSurface(cornerRadius: Theme.radiusS)
         }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
                 .strokeBorder(Theme.stroke, lineWidth: 1)
         }
     }
@@ -145,11 +145,11 @@ struct FloatingTimerView: View {
         .padding(10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
-            KaizenSurface(cornerRadius: Theme.radiusL)
+            KaizenSurface(cornerRadius: Theme.radiusS)
         }
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
                 .strokeBorder(Theme.stroke, lineWidth: 1)
         }
     }

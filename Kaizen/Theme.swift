@@ -17,11 +17,14 @@ enum Theme {
     static let radiusS: CGFloat = 6
     static let radiusM: CGFloat = 8
     static let radiusL: CGFloat = 12
+    static let fieldHeight: CGFloat = 32
     static let menuWidth: CGFloat = 276
+    static let startSessionListHeight: CGFloat = 108
     static let checklistMenuWidth: CGFloat = 380
-    static let checklistMenuMinHeight: CGFloat = 460
+    static let checklistMenuMinHeight: CGFloat = 620
     static let expandedTimerSize = CGSize(width: 268, height: 248)
     static let hoverChecklistListHeight: CGFloat = 140
+    static let persistentListHeight: CGFloat = 480
 
     static func compactTimerSize(clock: String, paused: Bool) -> CGSize {
         let timeWidth = CGFloat(clock.count) * 9.4
@@ -93,6 +96,42 @@ struct KaizenSurface: View {
     }
 }
 
+struct KaizenTextField: View {
+    @Binding var text: String
+    var placeholder: String = ""
+    var alignment: TextAlignment = .leading
+    var monospaced: Bool = false
+    var width: CGFloat? = nil
+    var onSubmit: (() -> Void)? = nil
+    var onChange: ((String) -> Void)? = nil
+
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .textFieldStyle(.plain)
+            .font(monospaced ? Theme.Typeface.timer() : Theme.Typeface.body())
+            .monospacedDigit()
+            .foregroundStyle(Theme.text)
+            .multilineTextAlignment(alignment)
+            .padding(.horizontal, 8)
+            .frame(width: width, height: Theme.fieldHeight, alignment: .center)
+            .frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+            .background(Theme.fill)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
+                    .strokeBorder(focused ? Theme.pink : Color.clear, lineWidth: 1)
+            }
+            .focused($focused)
+            .animation(Theme.Motion.colorAnimation, value: focused)
+            .onSubmit { onSubmit?() }
+            .onChange(of: text) { _, newValue in
+                onChange?(newValue)
+            }
+    }
+}
+
 struct KaizenButtonStyle: ButtonStyle {
     var kind: Kind = .plain
     enum Kind { case plain, primary, quiet }
@@ -105,7 +144,7 @@ struct KaizenButtonStyle: ButtonStyle {
             .padding(.vertical, kind == .plain ? 0 : 7)
             .frame(maxWidth: kind == .primary ? .infinity : nil)
             .background(background(pressed: configuration.isPressed))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
             .scaleEffect(kind == .plain ? 1 : (configuration.isPressed ? 0.97 : 1))
             .animation(kind == .plain ? nil : Theme.Motion.pressAnimation, value: configuration.isPressed)
     }

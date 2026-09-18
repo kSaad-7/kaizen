@@ -19,12 +19,14 @@ struct ChecklistList: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             composer
-            if itemListHeight != nil || !items.isEmpty {
-                itemList
-            }
+            itemList
         }
         .frame(maxWidth: .infinity, alignment: .top)
         .frame(maxHeight: itemListHeight == nil ? nil : .infinity, alignment: .top)
+    }
+
+    private var listViewportHeight: CGFloat {
+        itemListHeight ?? itemListMaxHeight
     }
 
     private var itemList: some View {
@@ -35,7 +37,7 @@ struct ChecklistList: View {
                         .font(Theme.Typeface.caption())
                         .foregroundStyle(Theme.muted)
                         .padding(.horizontal, 8)
-                        .padding(.top, 4)
+                        .padding(.top, 8)
                 } else {
                     ForEach(openItems) { item in
                         row(item)
@@ -60,11 +62,12 @@ struct ChecklistList: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .animation(Theme.Motion.fadeAnimation, value: items.map(\.id))
+            .padding(.bottom, 8)
         }
-        .scrollIndicators(.automatic)
+        .scrollIndicators(.visible)
         .frame(maxWidth: .infinity, alignment: .top)
-        .frame(minHeight: itemListHeight)
-        .frame(maxHeight: itemListHeight == nil ? itemListMaxHeight : .infinity)
+        .frame(height: listViewportHeight)
+        .contentShape(Rectangle())
     }
 
     private var composer: some View {
@@ -80,14 +83,14 @@ struct ChecklistList: View {
                 .onSubmit(submitDraft)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: Theme.fieldHeight, alignment: .leading)
         .background(Theme.fill)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusM, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: Theme.radiusM, style: .continuous)
-                .strokeBorder(addFocused ? Theme.pink.opacity(0.45) : Color.clear, lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
+                .strokeBorder(addFocused ? Theme.pink : Color.clear, lineWidth: 1)
         }
+        .animation(Theme.Motion.colorAnimation, value: addFocused)
     }
 
     private func row(_ item: ChecklistItem) -> some View {

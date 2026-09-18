@@ -87,47 +87,16 @@ struct MenuBarRootView: View {
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
 
-            HStack(alignment: .center, spacing: 8) {
-                HStack(spacing: 6) {
-                    TimerGlyph(size: 13)
-                        .foregroundStyle(session.isPaused ? Theme.muted : Theme.text)
-                    Text(session.remaining.kaizenClock)
-                        .font(Theme.Typeface.timer())
-                        .monospacedDigit()
-                        .foregroundStyle(session.isPaused ? Theme.muted : Theme.text)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 8) {
+                    sessionClock(session)
+                    sessionActions(session)
+                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(Theme.fill)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
-                        .strokeBorder(Theme.stroke, lineWidth: 1)
+                VStack(alignment: .leading, spacing: 8) {
+                    sessionClock(session)
+                    sessionActions(session)
                 }
-
-                HStack(spacing: 2) {
-                    SessionIconButton(
-                        systemName: session.isPaused ? "play.fill" : "pause.fill",
-                        help: session.isPaused ? "Resume" : "Pause"
-                    ) {
-                        if session.isPaused { sessionManager.resume() } else { sessionManager.pause() }
-                    }
-                    SessionIconButton(
-                        systemName: "stop.fill",
-                        help: "Stop"
-                    ) {
-                        sessionManager.stop()
-                    }
-                }
-                .padding(4)
-                .background(Theme.fill)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: Theme.radiusL, style: .continuous)
-                        .strokeBorder(Theme.stroke, lineWidth: 1)
-                }
-
-                Spacer(minLength: 0)
             }
 
             Divider().overlay(Theme.hairline)
@@ -147,6 +116,49 @@ struct MenuBarRootView: View {
         }
     }
 
+    private func sessionClock(_ session: FocusSession) -> some View {
+        HStack(spacing: 6) {
+            TimerGlyph(size: 13)
+                .foregroundStyle(session.isPaused ? Theme.muted : Theme.text)
+            Text(session.remaining.kaizenClock)
+                .font(Theme.Typeface.timer())
+                .monospacedDigit()
+                .foregroundStyle(session.isPaused ? Theme.muted : Theme.text)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Theme.fill)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
+                .strokeBorder(Theme.stroke, lineWidth: 1)
+        }
+    }
+
+    private func sessionActions(_ session: FocusSession) -> some View {
+        HStack(spacing: 2) {
+            SessionIconButton(
+                systemName: session.isPaused ? "play.fill" : "pause.fill",
+                help: session.isPaused ? "Resume" : "Pause"
+            ) {
+                if session.isPaused { sessionManager.resume() } else { sessionManager.pause() }
+            }
+            SessionIconButton(
+                systemName: "stop.fill",
+                help: "Stop"
+            ) {
+                sessionManager.stop()
+            }
+        }
+        .padding(4)
+        .background(Theme.fill)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.radiusS, style: .continuous)
+                .strokeBorder(Theme.stroke, lineWidth: 1)
+        }
+    }
+
     private var checklistScreen: some View {
         VStack(alignment: .leading, spacing: 8) {
             BackButton { route = .home }
@@ -157,7 +169,7 @@ struct MenuBarRootView: View {
 
             ChecklistList(
                 items: sessionManager.checklist,
-                itemListMaxHeight: 340,
+                itemListHeight: Theme.persistentListHeight,
                 onAdd: { sessionManager.addPersistentItem($0) },
                 onToggle: { sessionManager.togglePersistentItem($0) },
                 onDelete: { sessionManager.deletePersistentItem($0) }
