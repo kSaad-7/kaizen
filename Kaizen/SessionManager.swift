@@ -6,8 +6,6 @@ final class SessionManager: ObservableObject {
     @Published private(set) var session: FocusSession?
     @Published private(set) var checklist: [ChecklistItem] = []
     @Published private(set) var preferences: Preferences = .default
-    @Published var isDebugShortTimers = false
-
     private let store = PersistenceStore()
     private var timer: DispatchSourceTimer?
     private var wakeObserver: NSObjectProtocol?
@@ -34,13 +32,8 @@ final class SessionManager: ObservableObject {
         guard session == nil else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let resolved: TimeInterval
-        if isDebugShortTimers {
-            resolved = 5
-        } else {
-            resolved = DurationLimits.clamp(duration)
-            setLastDuration(resolved)
-        }
+        let resolved = DurationLimits.clamp(duration)
+        setLastDuration(resolved)
         session = FocusSession(
             name: trimmed,
             totalDuration: resolved,

@@ -47,16 +47,6 @@ struct MenuBarRootView: View {
                 route = .checklist
             }
 
-            #if DEBUG
-            Toggle(isOn: debugTimersBinding) {
-                Text("Debug 5s timers")
-                    .font(Theme.Typeface.body())
-                    .foregroundStyle(Theme.muted)
-            }
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-            #endif
-
             Button("Quit") { sessionManager.quit() }
                 .buttonStyle(KaizenButtonStyle(kind: .plain))
                 .foregroundStyle(Theme.muted)
@@ -184,15 +174,6 @@ struct MenuBarRootView: View {
         let count = sessionManager.checklist.filter { !$0.isChecked }.count
         return count == 0 ? nil : "\(count)"
     }
-
-    #if DEBUG
-    private var debugTimersBinding: Binding<Bool> {
-        Binding(
-            get: { sessionManager.isDebugShortTimers },
-            set: { sessionManager.isDebugShortTimers = $0 }
-        )
-    }
-    #endif
 
     private var hideBinding: Binding<Bool> {
         Binding(

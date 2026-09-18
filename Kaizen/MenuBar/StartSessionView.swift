@@ -144,7 +144,6 @@ struct StartSessionView: View {
 
     private var canStart: Bool {
         guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        if sessionManager.isDebugShortTimers { return true }
         return duration >= DurationLimits.minimum && duration <= DurationLimits.maximum
     }
 
