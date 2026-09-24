@@ -96,6 +96,10 @@ private final class VignetteView: NSView {
         return kinds.map { piece in
             let view = NSImageView()
             view.imageScaling = .scaleAxesIndependently
+            view.imageAlignment = .alignTopLeft
+            view.wantsLayer = true
+            view.layer?.magnificationFilter = .nearest
+            view.layer?.minificationFilter = .nearest
             return (piece, view)
         }
     }()
@@ -121,29 +125,41 @@ private final class VignetteView: NSView {
 
     func layoutFrame() {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
-        let thickness = min(bounds.width, bounds.height) * 0.28
-        guard thickness > 8, bounds.width > thickness * 2, bounds.height > thickness * 2 else { return }
+        let widthPx = max(1, Int((bounds.width * scale).rounded()))
+        let heightPx = max(1, Int((bounds.height * scale).rounded()))
+        let thicknessPx = Int((Double(min(widthPx, heightPx)) * 0.11).rounded())
+        guard thicknessPx > 8, widthPx > thicknessPx * 2, heightPx > thicknessPx * 2 else { return }
 
-        let width = bounds.width
-        let height = bounds.height
-        let innerWidth = width - thickness * 2
-        let innerHeight = height - thickness * 2
+        let innerW = widthPx - thicknessPx * 2
+        let innerH = heightPx - thicknessPx * 2
 
-        func place(_ piece: DitherRenderer.Piece, frame: NSRect) {
+        func place(_ piece: DitherRenderer.Piece, x: Int, y: Int, w: Int, h: Int) {
             guard let view = pieces.first(where: { $0.0 == piece })?.1 else { return }
-            view.image = DitherRenderer.image(piece: piece, pointSize: frame.size, scale: scale)
-            view.frame = frame
+            let pointSize = CGSize(width: CGFloat(w) / scale, height: CGFloat(h) / scale)
+            view.image = DitherRenderer.image(
+                piece: piece,
+                pixelSize: (w, h),
+                pointSize: pointSize,
+                pixelOrigin: (x, y)
+            )
+            // y is pixels from the top of the screen. Views use a bottom-left origin.
+            view.frame = NSRect(
+                x: CGFloat(x) / scale,
+                y: CGFloat(heightPx - (y + h)) / scale,
+                width: pointSize.width,
+                height: pointSize.height
+            )
         }
 
-        place(.corner(.bottomLeft), frame: NSRect(x: 0, y: 0, width: thickness, height: thickness))
-        place(.edge(.bottom), frame: NSRect(x: thickness, y: 0, width: innerWidth, height: thickness))
-        place(.corner(.bottomRight), frame: NSRect(x: width - thickness, y: 0, width: thickness, height: thickness))
+        place(.corner(.topLeft), x: 0, y: 0, w: thicknessPx, h: thicknessPx)
+        place(.edge(.top), x: thicknessPx, y: 0, w: innerW, h: thicknessPx)
+        place(.corner(.topRight), x: widthPx - thicknessPx, y: 0, w: thicknessPx, h: thicknessPx)
 
-        place(.edge(.left), frame: NSRect(x: 0, y: thickness, width: thickness, height: innerHeight))
-        place(.edge(.right), frame: NSRect(x: width - thickness, y: thickness, width: thickness, height: innerHeight))
+        place(.edge(.left), x: 0, y: thicknessPx, w: thicknessPx, h: innerH)
+        place(.edge(.right), x: widthPx - thicknessPx, y: thicknessPx, w: thicknessPx, h: innerH)
 
-        place(.corner(.topLeft), frame: NSRect(x: 0, y: height - thickness, width: thickness, height: thickness))
-        place(.edge(.top), frame: NSRect(x: thickness, y: height - thickness, width: innerWidth, height: thickness))
-        place(.corner(.topRight), frame: NSRect(x: width - thickness, y: height - thickness, width: thickness, height: thickness))
+        place(.corner(.bottomLeft), x: 0, y: heightPx - thicknessPx, w: thicknessPx, h: thicknessPx)
+        place(.edge(.bottom), x: thicknessPx, y: heightPx - thicknessPx, w: innerW, h: thicknessPx)
+        place(.corner(.bottomRight), x: widthPx - thicknessPx, y: heightPx - thicknessPx, w: thicknessPx, h: thicknessPx)
     }
 }

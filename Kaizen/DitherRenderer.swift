@@ -27,12 +27,18 @@ enum DitherRenderer {
     }
 
     private static var cache: [String: NSImage] = [:]
-    private static let peak = 0.36
+    /// Straight alpha at the outer edge.
+    private static let peak = 0.3
 
-    static func image(piece: Piece, pointSize: CGSize, scale: CGFloat) -> NSImage {
-        let width = max(8, Int((pointSize.width * scale).rounded()))
-        let height = max(8, Int((pointSize.height * scale).rounded()))
-        let key = "frame-36-\(pieceKey(piece))-\(width)x\(height)"
+    static func image(
+        piece: Piece,
+        pixelSize: (width: Int, height: Int),
+        pointSize: CGSize,
+        pixelOrigin: (x: Int, y: Int)
+    ) -> NSImage {
+        let width = max(8, pixelSize.width)
+        let height = max(8, pixelSize.height)
+        let key = "v8-\(pieceKey(piece))-\(width)x\(height)-\(pixelOrigin.x),\(pixelOrigin.y)"
         if let cached = cache[key] { return cached }
 
         guard let rep = NSBitmapImageRep(
@@ -58,10 +64,17 @@ enum DitherRenderer {
             for x in 0..<width {
                 let dist = distance(piece: piece, x: Double(x), y: Double(y), lastX: lastX, lastY: lastY)
                 let reach = edgeReach(piece: piece, lastX: lastX, lastY: lastY)
-                let falloff = max(0, 1 - dist / reach)
-                let vignette = pow(falloff, 1.35) * peak
-                let threshold = (Double(bayer8[y & 7][x & 7]) + 0.5) / 64.0
-                let alpha = min(1, max(0, vignette + (threshold - 0.5) * 0.06))
+                // 1 at the screen edge, 0 at the inner rim. The inner slice stays
+                // clear so the strip does not end on a hard line.
+                let t = max(0, 1 - dist / reach)
+                let u = min(1, t / 0.8)
+                let smooth = u * u * (3 - 2 * u)
+                let vignette = smooth * peak
+                let gx = pixelOrigin.x + x
+                let gy = pixelOrigin.y + y
+                let threshold = (Double(bayer8[gy & 7][gx & 7]) + 0.5) / 64.0
+                let grain = (threshold - 0.5) * 0.04 * smooth
+                let alpha = min(1, max(0, vignette + grain))
                 let i = y * bytesPerRow + x * 4
                 bytes[i] = 0
                 bytes[i + 1] = 0
