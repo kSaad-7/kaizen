@@ -1,10 +1,10 @@
 # Kaizen
 
-Kaizen is a macOS menu bar app for timed focus sessions. You name a block of work, pick how long it lasts, and a small clock stays on screen until the block ends. While the clock is running, the edges of every display dim so the session is present without covering what you are doing.
+Kaizen is a macOS menu bar app for timed focus sessions. You name a block of work, pick how long it lasts, and a small clock stays on screen until the block ends.
 
 ## Stack
 
-This is a native macOS app written in Swift. SwiftUI draws the menu and the timer cards. AppKit owns the menu bar extra, the floating panel, and the vignette windows. There are no third-party packages.
+This is a native macOS app written in Swift. SwiftUI draws the menu and the timer cards. AppKit owns the menu bar extra and the floating panel. There are no third-party packages.
 
 The app runs as an accessory, so it has no Dock icon. The checklist and preferences are JSON files in `~/Library/Application Support/Kaizen`.
 
@@ -32,7 +32,7 @@ When a session ends, any session task you did not check is copied onto this list
 
 ## Floating timer
 
-A borderless panel sits on the menu bar screen, above normal windows, and follows you across Spaces. The compact form is just the clock. Hovering it opens the session checklist plus pause and stop. If you are typing in the add-task field, the panel stays open.
+A borderless panel sits on the menu bar screen, above normal windows, and follows you across Spaces. The compact form shows the session name, the time left, and how many session tasks are still open. Hovering it opens the session checklist plus pause and stop. If you are typing in the add-task field, the panel stays open.
 
 The position picker places that clock at the top or bottom, on the left, center, or right. Hide timer removes the panel until the session ends. Pause greys the clock but does not clear the session.
 
@@ -40,8 +40,4 @@ The clock stores a deadline. Sleeping the Mac and waking it does not make the re
 
 ## End of a session
 
-Stopping, or letting the clock hit zero, flashes the timer pink and then dismisses it. The vignette fades out with the session. If the timer was hidden, the session ends without the flash.
-
-## Vignette
-
-While a session is running, including while it is paused, each display gets a click-through window. That window paints a dithered black border and leaves the middle of the screen alone. It fades in when a session starts and fades out when the session ends. If you plug in or unplug a display, the windows are rebuilt to match.
+Stopping, or letting the clock hit zero, flashes the timer pink and then dismisses it. If the timer was hidden, the session ends without the flash.

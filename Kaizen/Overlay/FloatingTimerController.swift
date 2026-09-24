@@ -19,6 +19,7 @@ final class FloatingTimerController {
     private var windowExpanded = false
     private var isHovering = false
     private var isMenuHeld = false
+    private var measuredPill: CGSize?
 
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
@@ -134,6 +135,9 @@ final class FloatingTimerController {
             },
             onHoldChange: { [weak self] held in
                 self?.setMenuHeld(held)
+            },
+            onPillSize: { [weak self] size in
+                self?.notePillSize(size)
             }
         )
         let seed = expandedSize()
@@ -241,16 +245,48 @@ final class FloatingTimerController {
         hosting.frame = NSRect(x: x, y: 0, width: expanded.width, height: expanded.height)
     }
 
+    private func notePillSize(_ size: CGSize) {
+        let next = CGSize(width: ceil(size.width), height: ceil(size.height))
+        guard next.width > 8, next.height > 8, next.height < 80 else { return }
+        if let current = measuredPill {
+            let widthChanged = abs(current.width - next.width) >= 4
+            let heightChanged = abs(current.height - next.height) >= 1
+            if !widthChanged, !heightChanged { return }
+            if !widthChanged {
+                measuredPill = CGSize(width: current.width, height: next.height)
+            } else {
+                measuredPill = next
+            }
+        } else {
+            measuredPill = next
+        }
+        guard panel != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyFrame(preferences: self.sessionManager.preferences)
+        }
+    }
+
     private func compactSize() -> CGSize {
-        Theme.compactTimerSize(
-            clock: sessionManager.session?.remaining.kaizenClock
-                ?? sessionManager.preferences.lastDuration.kaizenClock,
-            paused: sessionManager.session?.isPaused == true
+        if let measuredPill { return measuredPill }
+        let session = sessionManager.session
+        return Theme.compactTimerSize(
+            name: session?.name ?? "",
+            clock: session?.remaining.kaizenClock ?? sessionManager.preferences.lastDuration.kaizenClock,
+            pending: session?.items.filter { !$0.isChecked }.count ?? 0
         )
     }
 
     private func expandedSize() -> CGSize {
-        Theme.expandedTimerSize
+        CGSize(
+            width: Theme.expandedTimerWidth(
+                name: sessionManager.session?.name ?? "",
+                clock: sessionManager.session?.remaining.kaizenClock
+                    ?? sessionManager.preferences.lastDuration.kaizenClock,
+                pending: sessionManager.session?.items.filter { !$0.isChecked }.count ?? 0
+            ),
+            height: Theme.expandedTimerSize.height
+        )
     }
 }
 
@@ -259,9 +295,14 @@ struct FloatingTimerRoot: View {
     @ObservedObject var chrome: TimerChrome
     var onHoverChange: (Bool) -> Void
     var onHoldChange: (Bool) -> Void
+    var onPillSize: (CGSize) -> Void
 
     var body: some View {
-        FloatingTimerView(onHoverChange: onHoverChange, onHoldChange: onHoldChange)
+        FloatingTimerView(
+            onHoverChange: onHoverChange,
+            onHoldChange: onHoldChange,
+            onPillSize: onPillSize
+        )
             .environmentObject(sessionManager)
             .environmentObject(chrome)
     }

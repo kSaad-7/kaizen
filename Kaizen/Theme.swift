@@ -26,10 +26,42 @@ enum Theme {
     static let widgetGap: CGFloat = 6
     static let hoverChecklistListHeight: CGFloat = 140
     static let persistentListHeight: CGFloat = 480
+    static let widgetTimerSize: CGFloat = 13
+    static let widgetNameMaxWidth: CGFloat = 168
 
-    static func compactTimerSize(clock: String, paused: Bool) -> CGSize {
-        let timeWidth = CGFloat(clock.count) * 9.4
-        return CGSize(width: ceil(20 + 13 + 6 + timeWidth + 20), height: 36)
+    static func compactTimerSize(name: String, clock: String, pending: Int) -> CGSize {
+        let font = NSFont.systemFont(ofSize: widgetTimerSize, weight: .medium)
+        let nameWidth = widgetNameWidth(name)
+        let dashWidth = measured("-", font: font)
+        let clockWidth = widgetClockWidth(clock)
+        let countWidth = widgetCountWidth(pending)
+        let width = 20 + nameWidth + 6 + dashWidth + 6 + clockWidth + 8 + 11 + 3 + countWidth + 4
+        return CGSize(width: ceil(width), height: 32)
+    }
+
+    static func widgetClockWidth(_ clock: String) -> CGFloat {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: widgetTimerSize, weight: .medium)
+        let slot = String(clock.map { $0.isNumber ? "0" : $0 })
+        return measured(slot.isEmpty ? "00:00" : slot, font: font)
+    }
+
+    static func widgetCountWidth(_ pending: Int) -> CGFloat {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let digits = max(2, String(max(0, pending)).count)
+        return measured(String(repeating: "0", count: digits), font: font)
+    }
+
+    static func widgetNameWidth(_ name: String) -> CGFloat {
+        let font = NSFont.systemFont(ofSize: widgetTimerSize, weight: .medium)
+        return min(widgetNameMaxWidth, measured(name.isEmpty ? " " : name, font: font))
+    }
+
+    static func expandedTimerWidth(name: String, clock: String, pending: Int) -> CGFloat {
+        max(expandedTimerSize.width, compactTimerSize(name: name, clock: clock, pending: pending).width)
+    }
+
+    private static func measured(_ text: String, font: NSFont) -> CGFloat {
+        ceil((text as NSString).size(withAttributes: [.font: font]).width)
     }
 
     enum Space {
@@ -59,7 +91,6 @@ enum Theme {
         static let hoverExit: Duration = .milliseconds(300)
         static let press: TimeInterval = duration
         static let fade: TimeInterval = duration
-        static let vignette: TimeInterval = duration
         static let completionBurst: TimeInterval = 0.32
         static let completionFade: TimeInterval = 0.2
         static let closeArmTimeout: TimeInterval = 3

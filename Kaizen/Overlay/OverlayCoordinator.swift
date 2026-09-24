@@ -5,7 +5,6 @@ import Combine
 final class OverlayCoordinator {
     private let sessionManager: SessionManager
     private let timerController: FloatingTimerController
-    private let vignetteController: VignetteController
     private var cancellables = Set<AnyCancellable>()
     private var screenObserver: NSObjectProtocol?
     private var completionStarted = false
@@ -15,7 +14,6 @@ final class OverlayCoordinator {
     init(sessionManager: SessionManager) {
         self.sessionManager = sessionManager
         self.timerController = FloatingTimerController(sessionManager: sessionManager)
-        self.vignetteController = VignetteController()
     }
 
     func start() {
@@ -34,7 +32,6 @@ final class OverlayCoordinator {
             Task { @MainActor in
                 guard let self else { return }
                 self.lastPosition = nil
-                self.vignetteController.screensChanged()
                 self.sync(session: self.sessionManager.session, preferences: self.sessionManager.preferences)
             }
         }
@@ -43,8 +40,6 @@ final class OverlayCoordinator {
     }
 
     private func sync(session: FocusSession?, preferences: Preferences) {
-        vignetteController.sync(isRunning: session?.isRunning == true)
-
         guard let session else {
             completionStarted = false
             lastPosition = nil
